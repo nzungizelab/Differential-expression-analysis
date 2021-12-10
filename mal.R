@@ -102,7 +102,7 @@ summary(fit$df.prior)
 
 #After filtering and normalization, check how samples are relate to each other 
 plotMDS(y_filtered, 
-        col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3),), 
+        col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3)), 
         labels= c(rep("Clinical.Asexual",9), rep("Clinical.Sexual",7), rep("Lab.Asexual",3),rep("Lab.Sexual",3)))
 
 # comparing two groups to finds out upregulated and downregulated genes 
@@ -579,7 +579,7 @@ Tab4 <- Tab4 %>% rownames_to_column(var = "GeneID") #Assign a variable to first 
 
 head(Tab4)
 
-#merge two tables (counts and gene annotation table keytype:Geneid)
+#merge two tables (counts and gene annotation table key type:GeneID)
 head(Tab4) #table 1
 dim(Tab4)
 head(annot) #table 2
@@ -605,7 +605,7 @@ EnhancedVolcano(Tab4,
                 xlab = bquote(~Log[2]~ 'fold change'),
                 #ylab = bquote(~Log[10]~ italic('PValue')),
                 ylab = bquote(-~Log[10]~italic('padj')),
-                title = 'Sexual stage between  Lab and Clinical',
+                title = 'Asexual stage between  Lab and Clinical',
                 #selectLab = c('LRP2','TNMD','AFF3','CCDC124'), # lab a set of genes pass FCcutoff and pCutoff thresholds
                 
                 #labFace = 'bold', #draw labels in bold
@@ -648,3 +648,88 @@ EnhancedVolcano(Tab4,
                 
 )
 dev.off()
+
+
+
+
+# Venn digram (Tab1 and Tab2)
+library("grid")
+library("VennDiagram")
+library("gplots")
+
+#set value for level of DEG
+pval_threshold <- 0.1 
+logfc_threshold <- 1
+
+#set gene for Tab1
+Tab1 <- glmQLFTest(fit, contrast=labSexvsAsex, coef = 2)
+
+topTags(Tab1, n= 5) # table of top 5 DEG
+
+# adjust p-values and assign the result to our table
+#we consider a fraction of 10% false positives acceptable, therefore all genes with an adjusted p value below 10% = 0.1 as significant. 
+Tab1$table$padj <- p.adjust(Tab1$table$PValue, method="BH")
+
+sum(Tab1$table$padj < 0.05)
+# 28 gene
+
+head(Tab1$table$padj)
+
+topTags(Tab1)
+
+# Filter on adjusted p-value and get the rownames
+Tab1 <- as.data.frame(topTags(Tab1, n = nrow(Tab1)))
+
+Tab1_Top.deg <- row.names(Tab1[Tab1$FDR <= pval_threshold,])
+
+
+#set data Tab2
+Tab2 <- glmQLFTest(fit, contrast=clinicalSexvsAsex, coef = 2)
+
+
+topTags(Tab2, n= 5) # table of top 5 DEG
+
+# adjust p-values and assign the result to our table
+#we consider a fraction of 10% false positives acceptable, therefore all genes with an adjusted p value below 10% = 0.1 as significant. 
+Tab2$table$padj <- p.adjust(Tab2$table$PValue, method="BH")
+
+sum(Tab2$table$padj < 0.05)
+# 28 gene
+
+head(Tab2$table$padj)
+
+topTags(Tab2)
+
+# Filter on adjusted p-value and get the rownames
+Tab2 <- as.data.frame(topTags(Tab2, n = nrow(Tab2)))
+
+Tab2_Top.deg <- row.names(Tab2[Tab2$FDR <= pval_threshold,])
+
+# Calculate the intersection of the two sets
+deg.intersect = length(intersect(Tab1_Top.deg, Tab2_Top.deg))
+deg.venn <- list('intersect' = deg.intersect,
+                 'lab' = length(Tab1_Top.deg),
+                 'clinical' = length(Tab2_Top.deg))
+
+
+
+png(paste0(outpath,"venn_diagramm2.png"))
+venn.plot <- draw.pairwise.venn(deg.venn$lab, deg.venn$clinical, deg.venn$intersect,
+                                category = c("Lab strain", "Clinical strain"), #label for each circle
+                                scaled = F,
+                                #filename = '7.venn_diagramm1.png',
+                                lwd = rep(2, 2),
+                                lty = rep("solid", 2),
+                                col = "transparent",
+                                fill = c("pink", "green"), #add color to each circles
+                                #fill = mypalete3,
+                                fontface = "bold",
+                                alpha = rep(0.5, 2),
+                                cex = rep(1, 3), 
+                                cat.pos = c(0, 0),
+                                cat.dist = rep(0.025, 2),
+                                na = "remove"
+)
+dev.off()
+
+
