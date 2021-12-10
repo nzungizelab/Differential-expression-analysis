@@ -101,9 +101,20 @@ head(fit$coefficients)
 summary(fit$df.prior)
 
 #After filtering and normalization, check how samples are relate to each other 
+
+png(paste0(outpath,"PCA1.png"))
 plotMDS(y_filtered, 
         col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3)), 
         labels= c(rep("Clinical.Asexual",9), rep("Clinical.Sexual",7), rep("Lab.Asexual",3),rep("Lab.Sexual",3)))
+
+dev.off()
+
+png(paste0(outpath,"PCA2.png"))
+plotMDS(y_filtered, 
+        col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3)))
+
+dev.off()
+
 
 # comparing two groups to finds out upregulated and downregulated genes 
 # comparing 2 groups we can contrast() using the method exactTest(DGEList) to obtain DEG. 
@@ -658,8 +669,8 @@ library("VennDiagram")
 library("gplots")
 
 #set value for level of DEG
-pval_threshold <- 0.1 
-logfc_threshold <- 1
+pval_threshold <- 0.05 
+logfc_threshold <- 0.5
 
 #set gene for Tab1
 Tab1 <- glmQLFTest(fit, contrast=labSexvsAsex, coef = 2)
@@ -680,6 +691,7 @@ topTags(Tab1)
 # Filter on adjusted p-value and get the rownames
 Tab1 <- as.data.frame(topTags(Tab1, n = nrow(Tab1)))
 
+
 Tab1_Top.deg <- row.names(Tab1[Tab1$FDR <= pval_threshold,])
 
 
@@ -694,7 +706,7 @@ topTags(Tab2, n= 5) # table of top 5 DEG
 Tab2$table$padj <- p.adjust(Tab2$table$PValue, method="BH")
 
 sum(Tab2$table$padj < 0.05)
-# 28 gene
+# 227 gene
 
 head(Tab2$table$padj)
 
@@ -732,4 +744,98 @@ venn.plot <- draw.pairwise.venn(deg.venn$lab, deg.venn$clinical, deg.venn$inters
 )
 dev.off()
 
+##Save the DEG into .csv table
 
+#load table with DEG in Lab strain
+Tab1_Top.deg <- as.data.frame(Tab1_Top.deg)
+head(Tab1_Top.deg)
+dim(Tab1_Top.deg)
+
+#rename the header as "GeneID"
+Tab1_Top.deg = rename(Tab1_Top.deg, GeneID = Tab1_Top.deg)
+
+
+#creating a table with padj, FDR, LogFc, ...
+Tab1 <- glmQLFTest(fit, contrast=labSexvsAsex, coef = 2)
+
+topTags(Tab1, n= 5) # table of top 5 DEG
+
+# adjust p-values and assign the result to our table
+Tab1$table$padj <- p.adjust(Tab1$table$PValue, method="BH")
+
+sum(Tab1$table$padj < 0.05)
+# 28 gene
+
+head(Tab1$table$padj)
+
+topTags(Tab1)
+
+# Filter on adjusted p-value and get the rownames
+Tab1 <- as.data.frame(topTags(Tab1, n = nrow(Tab1)))
+head(Tab1)
+
+#rename the header
+Tab1<- Tab1 %>% rownames_to_column(var = "GeneID") #Assign a variable to first column
+head(Tab1)
+dim(Tab1)
+
+#merge the two tables for LogFC, FDR, padj,..
+Tab1_Top.deg <- merge(Tab1,Tab1_Top.deg, by="GeneID")
+head(Tab1_Top.deg, n=10)
+dim(Tab1_Top.deg)
+
+
+#merge the two tables for LogFC, FDR, padj,.. with annoted table
+Tab1_Top.deg <- merge(Tab1_Top.deg,annot, by="GeneID")
+head(Tab1_Top.deg, n=10)
+dim(Tab1_Top.deg)
+
+#save the table in csv format
+write.csv(Tab1_Top.deg,"Tab1_Top.deg.csv",row.names=FALSE,quote=FALSE)
+
+
+#load table with DEG in clinical strain
+Tab2_Top.deg <- as.data.frame(Tab2_Top.deg)
+head(Tab2_Top.deg)
+dim(Tab2_Top.deg)
+
+#rename the header as "GeneID"
+Tab2_Top.deg = rename(Tab2_Top.deg, GeneID = Tab2_Top.deg)
+
+
+#creating a table with padj, FDR, LogFc, ...
+Tab2 <- glmQLFTest(fit, contrast=clinicalSexvsAsex, coef = 2)
+
+topTags(Tab2, n= 5) # table of top 5 DEG
+
+# adjust p-values and assign the result to our table
+Tab2$table$padj <- p.adjust(Tab1$table$PValue, method="BH")
+
+sum(Tab2$table$padj < 0.05)
+# 28 gene
+
+head(Tab2$table$padj)
+
+topTags(Tab2)
+
+# Filter on adjusted p-value and get the rownames
+Tab2 <- as.data.frame(topTags(Tab2, n = nrow(Tab2)))
+head(Tab2)
+
+#rename the header
+Tab2<- Tab2 %>% rownames_to_column(var = "GeneID") #Assign a variable to first column
+head(Tab2)
+dim(Tab2)
+
+#merge the two tables for LogFC, FDR, padj,..
+Tab2_Top.deg <- merge(Tab2,Tab2_Top.deg, by="GeneID")
+head(Tab2_Top.deg, n=10)
+dim(Tab2_Top.deg)
+
+#merge the two tables for LogFC, FDR, padj,.. with annoted table
+Tab2_Top.deg <- merge(Tab2_Top.deg,annot, by="GeneID")
+head(Tab2_Top.deg, n=10)
+dim(Tab2_Top.deg)
+
+#save the table in csv format
+write.csv(Tab2_Top.deg,"Tab2_Top.deg.csv",row.names=FALSE,quote=FALSE)
