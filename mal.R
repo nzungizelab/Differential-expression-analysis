@@ -839,3 +839,32 @@ dim(Tab2_Top.deg)
 
 #save the table in csv format
 write.csv(Tab2_Top.deg,"Tab2_Top.deg.csv",row.names=FALSE,quote=FALSE)
+
+
+##load the data of overlapped genes 21 genes
+overlap <-read.delim("Tab3_overlap.txt", header = TRUE) # counts can be read into a data.frame
+
+# view of data loaded
+head(overlap)
+dim(overlap)
+colnames(overlap)
+
+
+overlap <- as.data.frame(overlap)
+head(overlap, n=10)
+dim(overlap)
+
+
+head(annot, n=10)
+dim(annot)
+
+
+
+
+#merge the two tables for LogFC, FDR, padj,.. with annoted table
+overlap <- merge(overlap,annot, by="GeneID")
+head(overlap, n=10)
+dim(overlap)
+
+#save the table in csv format
+write.csv(Tab2_Top.deg,"Tab2_Top.deg.csv",row.names=FALSE,quote=FALSE)
