@@ -1,4 +1,3 @@
-
 # set working directory
 setwd("D:/ML/K-mean/jako")
 
@@ -32,7 +31,6 @@ annot <-read.delim("gene_ane_symbols1.txt", header = TRUE) # counts can be read 
 head(annot)
 dim(annot)
 colnames(annot)
-
 
 # load libraries
 library("Rcpp")
@@ -100,8 +98,10 @@ fit <- glmQLFit(y_filtered, design, robust=TRUE)
 head(fit$coefficients)
 summary(fit$df.prior)
 
-#After filtering and normalization, check how samples are relate to each other 
+##Data exploration
 
+# using PCA
+#After filtering and normalization, check how samples are relate to each other 
 png(paste0(outpath,"PCA1.png"))
 plotMDS(y_filtered, 
         col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3)), 
@@ -109,16 +109,22 @@ plotMDS(y_filtered,
 
 dev.off()
 
+#chek sample data without group label
 png(paste0(outpath,"PCA2.png"))
 plotMDS(y_filtered, 
         col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3)))
 
 dev.off()
 
+#using heatmap
+#Plotting correlation of samples with normalized counts
+png(paste0(outpath,"correlation.png"))
+pheatmap(cor(log2(cpm(y_filtered)+1), cluster_cols = F,annotation_row = y_filtered), main="Correlation")
+dev.off()
 
-# comparing two groups to finds out upregulated and downregulated genes 
-# comparing 2 groups we can contrast() using the method exactTest(DGEList) to obtain DEG. 
-#more than 2 groups use a linear model. For edgeR uses a generalized linear model ( GLM )
+# Comparing two groups to finds out upregulated and downregulated genes 
+# by comparing 2 groups we can contrast() using the method exactTest(DGEList) to obtain DEG. 
+# more than 2 groups use a linear model. For edgeR uses a generalized linear model ( GLM )
 
 labSexvsAsex <- makeContrasts(Lab.Asexual-Lab.Sexual, levels=design)  
 
@@ -296,9 +302,9 @@ sum(Tab4$table$padj < 0.05 & Tab4$table$logFC > 1)
 #change into data frame
 Tab1
 
-str(Tab1)
+str(Tab1) #check data structure
 
-Tab1 <- as.data.frame(Tab1)
+Tab1 <- as.data.frame(Tab1) #save data as df
 
 #Tab1$Gene_Name
 
@@ -307,8 +313,7 @@ head(Tab1)
 dim(Tab1)
 #[1] 4681    5
 
-
-#name column header for first column as "GeneID"
+#set name of first column header as "GeneID" 
 library(dplyr)
 library(tibble)
 
@@ -316,9 +321,7 @@ Tab1 <- Tab1 %>% rownames_to_column(var = "GeneID") #Assign a variable to first 
 
 head(Tab1)
 
-
-#merge two tables (counts and gene annotation table keytype:Geneid)
-
+#merge two tables (counts and gene annotation table keytype:GeneId)
 head(Tab1) #table 1
 dim(Tab1)
 head(annot) #table 2
@@ -328,10 +331,8 @@ Tab1 <- merge(Tab1,annot, by="GeneID")
 head(Tab1, n=10)
 dim(Tab1)
 
-
 #volvano plot
-#Volcano plots represent a useful way to visualize the results of differential expression analyses.
-
+#Volcano plots represent a useful way to visualize the results of DE analyses.
 png(paste0(outpath,"volcano_Tab1.png"))
 EnhancedVolcano(Tab1,
                 #lab = rownames(Tab1),
@@ -389,7 +390,6 @@ EnhancedVolcano(Tab1,
 dev.off()
 
 
-
 #Volcano plot for Tab2 
 
 #change into data frame
@@ -403,12 +403,10 @@ head(Tab2)
 
 dim(Tab2)
 
-
 #name column header for first column as "GeneID"
 Tab2 <- Tab2 %>% rownames_to_column(var = "GeneID") #Assign a variable to first column
 
 head(Tab2)
-
 
 #merge two tables (counts and gene annotation table keytype:Geneid)
 head(Tab2) #table 1
@@ -480,7 +478,6 @@ EnhancedVolcano(Tab2,
 )
 dev.off()
 
-
 #Volcano plot for Tab3 
 
 #change into data frame
@@ -500,7 +497,6 @@ Tab3 <- Tab3 %>% rownames_to_column(var = "GeneID") #Assign a variable to first 
 
 head(Tab3)
 
-
 #merge two tables (counts and gene annotation table keytype:Geneid)
 head(Tab3) #table 1
 dim(Tab3)
@@ -510,7 +506,6 @@ dim(annot)
 Tab3 <- merge(Tab3,annot, by="GeneID")
 head(Tab3, n=10)
 dim(Tab3)
-
 
 #volvano plot
 #Volcano plots represent a useful way to visualize the results of differential expression analyses.
@@ -582,12 +577,10 @@ str(Tab4)
 Tab4 <- as.data.frame(Tab4)
 
 head(Tab4)
-
 dim(Tab4)
 
 #name column header for first column as "GeneID"
 Tab4 <- Tab4 %>% rownames_to_column(var = "GeneID") #Assign a variable to first column
-
 head(Tab4)
 
 #merge two tables (counts and gene annotation table key type:GeneID)
@@ -599,7 +592,6 @@ dim(annot)
 Tab4 <- merge(Tab4,annot, by="GeneID")
 head(Tab4, n=10)
 dim(Tab4)
-
 
 #volvano plot
 #Volcano plots represent a useful way to visualize the results of differential expression analyses.
@@ -660,9 +652,6 @@ EnhancedVolcano(Tab4,
 )
 dev.off()
 
-
-
-
 # Venn digram (Tab1 and Tab2)
 library("grid")
 library("VennDiagram")
@@ -672,13 +661,13 @@ library("gplots")
 pval_threshold <- 0.05 
 logfc_threshold <- 0.5
 
-#set gene for Tab1
+#set gene for Tab1 (Lab strain)
 Tab1 <- glmQLFTest(fit, contrast=labSexvsAsex, coef = 2)
 
 topTags(Tab1, n= 5) # table of top 5 DEG
 
-# adjust p-values and assign the result to our table
-#we consider a fraction of 10% false positives acceptable, therefore all genes with an adjusted p value below 10% = 0.1 as significant. 
+# assign adjust p-values to our table
+#we consider a fraction of 5% false positives acceptable, therefore all genes with an adjusted p value below 5% = 0.05 as significant. 
 Tab1$table$padj <- p.adjust(Tab1$table$PValue, method="BH")
 
 sum(Tab1$table$padj < 0.05)
@@ -691,22 +680,20 @@ topTags(Tab1)
 # Filter on adjusted p-value and get the rownames
 Tab1 <- as.data.frame(topTags(Tab1, n = nrow(Tab1)))
 
-
+#identify the DEG according to the threshold we set
 Tab1_Top.deg <- row.names(Tab1[Tab1$FDR <= pval_threshold,])
 
 
-#set data Tab2
+#set data Tab2 (Clinical strain)
 Tab2 <- glmQLFTest(fit, contrast=clinicalSexvsAsex, coef = 2)
-
 
 topTags(Tab2, n= 5) # table of top 5 DEG
 
-# adjust p-values and assign the result to our table
-#we consider a fraction of 10% false positives acceptable, therefore all genes with an adjusted p value below 10% = 0.1 as significant. 
+# add adjust p-values 
 Tab2$table$padj <- p.adjust(Tab2$table$PValue, method="BH")
 
 sum(Tab2$table$padj < 0.05)
-# 227 gene
+# 227 genes
 
 head(Tab2$table$padj)
 
@@ -753,14 +740,14 @@ dim(Tab1_Top.deg)
 
 #rename the header as "GeneID"
 Tab1_Top.deg = rename(Tab1_Top.deg, GeneID = Tab1_Top.deg)
-
+head(Tab1_Top.deg)
 
 #creating a table with padj, FDR, LogFc, ...
 Tab1 <- glmQLFTest(fit, contrast=labSexvsAsex, coef = 2)
 
 topTags(Tab1, n= 5) # table of top 5 DEG
 
-# adjust p-values and assign the result to our table
+# add adjust p-values to our table
 Tab1$table$padj <- p.adjust(Tab1$table$PValue, method="BH")
 
 sum(Tab1$table$padj < 0.05)
@@ -770,27 +757,27 @@ head(Tab1$table$padj)
 
 topTags(Tab1)
 
-# Filter on adjusted p-value and get the rownames
+# Filter top DEG based on adjusted p-value and get the rownames
 Tab1 <- as.data.frame(topTags(Tab1, n = nrow(Tab1)))
 head(Tab1)
 
-#rename the header
+#rename the header (first column)
 Tab1<- Tab1 %>% rownames_to_column(var = "GeneID") #Assign a variable to first column
 head(Tab1)
 dim(Tab1)
 
-#merge the two tables for LogFC, FDR, padj,..
+#merge the two tables (to identify DEG from lab and their padj)
 Tab1_Top.deg <- merge(Tab1,Tab1_Top.deg, by="GeneID")
 head(Tab1_Top.deg, n=10)
 dim(Tab1_Top.deg)
 
 
-#merge the two tables for LogFC, FDR, padj,.. with annoted table
+#merge the two tables (DEG gene from Lab strain with annoted table)
 Tab1_Top.deg <- merge(Tab1_Top.deg,annot, by="GeneID")
 head(Tab1_Top.deg, n=10)
 dim(Tab1_Top.deg)
 
-#save the table in csv format
+#save the DEG in table as csv format
 write.csv(Tab1_Top.deg,"Tab1_Top.deg.csv",row.names=FALSE,quote=FALSE)
 
 
@@ -801,7 +788,7 @@ dim(Tab2_Top.deg)
 
 #rename the header as "GeneID"
 Tab2_Top.deg = rename(Tab2_Top.deg, GeneID = Tab2_Top.deg)
-
+head(Tab2_Top.deg)
 
 #creating a table with padj, FDR, LogFc, ...
 Tab2 <- glmQLFTest(fit, contrast=clinicalSexvsAsex, coef = 2)
@@ -809,7 +796,7 @@ Tab2 <- glmQLFTest(fit, contrast=clinicalSexvsAsex, coef = 2)
 topTags(Tab2, n= 5) # table of top 5 DEG
 
 # adjust p-values and assign the result to our table
-Tab2$table$padj <- p.adjust(Tab1$table$PValue, method="BH")
+Tab2$table$padj <- p.adjust(Tab2$table$PValue, method="BH")
 
 sum(Tab2$table$padj < 0.05)
 # 28 gene
@@ -850,7 +837,18 @@ dim(overlap)
 colnames(overlap)
 
 
+head(Tab1_Top.deg)
+dim(Tab1_Top.deg)
+colnames(overlap)
+
+
 overlap <- as.data.frame(overlap)
+head(overlap, n=10)
+dim(overlap)
+
+
+#merge the two tables (DEG gene from Lab strain with annoted table)
+overlap <- merge(overlap,Tab1, by="GeneID")
 head(overlap, n=10)
 dim(overlap)
 
@@ -859,12 +857,10 @@ head(annot, n=10)
 dim(annot)
 
 
-
-
 #merge the two tables for LogFC, FDR, padj,.. with annoted table
 overlap <- merge(overlap,annot, by="GeneID")
 head(overlap, n=10)
 dim(overlap)
 
 #save the table in csv format
-write.csv(Tab2_Top.deg,"Tab2_Top.deg.csv",row.names=FALSE,quote=FALSE)
+write.csv(overlap,"Tab3_overlap.deg.csv",row.names=FALSE,quote=FALSE)
