@@ -1,19 +1,19 @@
-# set working directory
+## set working directory
 setwd("D:/ML/K-mean/jako")
 
-# path for saving ouptut
+## Path for saving ouptut
 outpath <- "D:/ML/K-mean/jako/"  
 
-#loading data (counts matrix)
+## loading data (counts matrix)
 counts <-read.delim("joka_normalization.txt", row.names = 1, sep="\t", header = TRUE) # counts can be read into a data.frame
 
-# view of data loaded
+## view of data loaded
 head(counts)
 dim(counts)
 colnames(counts)
 data(counts)
 
-# load genotypes data and conditions 
+## load phenotype data and conditions 
 expdesign1 <- read.table("pheno.txt", header=T)
 head(expdesign1, n = 15)
 dim(expdesign1)
@@ -24,7 +24,7 @@ groups <- factor(groups) #group	vector containing the experimental group/conditi
 table(groups) 
 
 
-#load gene annotation
+## load gene annotation
 annot <-read.delim("gene_ane_symbols1.txt", header = TRUE) # counts can be read into a data.frame
 
 # view of data loaded
@@ -32,7 +32,7 @@ head(annot)
 dim(annot)
 colnames(annot)
 
-# load libraries
+## load libraries
 library("Rcpp")
 library("NMF")
 library("DESeq2")
@@ -51,9 +51,10 @@ counts <- as.matrix(counts) #convert df to matrix, because DGEList needs the cou
 y <- DGEList(counts, samples=expdesign1, group=expdesign1$strain2)
 head(y)
 
-# Filtering data
+## Filtering data
+
 #using edgeR the raw counts are converted to CPM and log-CPM values using the cpm function.
-#By default in edgeR, a gene should have CPM > 0.5 in at least 3 samples in opposite condition, the gene is removed
+#By default under edgeR package, a gene should have CPM > 0.5 in at least 3 samples in opposite condition, the gene is removed
 
 dim(y) #Checking before filtering step
 #[1] 4681   22
@@ -68,15 +69,17 @@ head(y_filtered)
 
 dim(y_filtered) #Checking after filtering step
 
-#Normalization
-#Among various normalisation methods (TMM, BH, RLE, and upperquartile UQ) we will use  TMM (most useful normalization in RNA-Seq analysis)
+##Normalization
+
+#Among various normalization methods (TMM, BH, RLE, and upperquartile UQ) we will use  TMM (most useful normalization in RNA-Seq analysis)
 #These normalization methods are performed using either DESeq (RLE) or edgeR (TC, RPKM, UQ, TMM).
 #TMM(trimmed mean of M-values: estimating relative RNA production levels from RNA-seq data
 
-y_filtered <- calcNormFactors(y_filtered, method="TMM")  #Calculate Normalization Factors to Align Columns of a Count Matrix 
+y_filtered <- calcNormFactors(y_filtered, method="TMM")  #Calculate normalization factors to align columns of a count matrix 
 head(y_filtered$samples, n=15)
 
-#creating matrix
+##creating matrix
+
 #design matrix helps to compare groups of your data
 design <- model.matrix(~0+groups)
 
@@ -109,20 +112,59 @@ plotMDS(y_filtered,
 
 dev.off()
 
-#chek sample data without group label
+#check sample data without group label
 png(paste0(outpath,"PCA2.png"))
 plotMDS(y_filtered, 
         col=c(rep("black",9), rep("red",7), rep("green",3),rep("yellow",3)))
 
 dev.off()
 
-#using heatmap
+
+## Heat map clustering
+
+#Heatmaps show DE results for publication purposes
+#first convert the read counts into log2-counts-per-million (logCPM) values using cpm()
+# prior.count is to avoid undefined values and to reduce the variability of the logCPM values for genes with low counts
+#Larger values for prior.count shrink the logFCs for low count genes towards zero.
+
+logCPM <- cpm(y_filtered, prior.count=2, log=TRUE)
+
+rownames(logCPM) <- y_filtered$genes$Symbol
+
+colnames(logCPM) <- paste(y_filtered$samples$group, 1:2, sep="-")
+
+## visualize the top 20 DE genes using heatmap
+#Benefits of heatmap can show the expression pattern of the genes across all the samples.
+#treat test between lab strain.
+o <- order(Tab1$table$PValue)
+
+#o <- order(Tab1$table$padj) #based on padj values
+
+#First select the logCPM values for the 20 top genes
+logCPM <- logCPM[o[1:20],] 
+
+#Then we scale each row (each gene) to have mean zero and standard deviation one
+logCPM <- t(scale(t(logCPM)))
+
+library(gplots)
+
+#create a heat map using heatmap.2() under the gplots package:
+col.pan <- colorpanel(100, "blue", "white", "red")
+
+png(paste0(outpath,"Fig7_heatmap.png"))
+heatmap.2(logCPM, col=col.pan, Rowv=TRUE, scale="none",
+          trace="none", dendrogram="both", cexRow=1, cexCol=1.4,
+          margin=c(10,9), lhei=c(2,10), lwid=c(2,6))
+dev.off()
+
+## using heatmap
 #Plotting correlation of samples with normalized counts
 png(paste0(outpath,"correlation.png"))
 pheatmap(cor(log2(cpm(y_filtered)+1), cluster_cols = F,annotation_row = y_filtered), main="Correlation")
 dev.off()
 
-# Comparing two groups to finds out upregulated and downregulated genes 
+
+## Comparing two groups to finds out upregulated and downregulated genes 
 # by comparing 2 groups we can contrast() using the method exactTest(DGEList) to obtain DEG. 
 # more than 2 groups use a linear model. For edgeR uses a generalized linear model ( GLM )
 
@@ -141,6 +183,9 @@ asexual <- makeContrasts(Clinical.Asexual-Lab.Asexual, levels=design)
 Tab1 <- glmQLFTest(fit, contrast=labSexvsAsex, coef = 2)
 
 topTags(Tab1, n= 5) # table of top 5 DEG
+
+Tab1_top <- rownames(topTags(Tab1, n = 25)) #top 25 genes 
+Tab1_top
 
 Tab1_top.gene <- topTags(Tab1)  # table of top DEG
 Tab1_top.gene
@@ -175,7 +220,6 @@ sum(Tab1$table$PValue < 0.05 & Tab1$table$logFC > 1)
 
 sum(Tab1$table$padj < 0.05 & Tab1$table$logFC > 1)
 # padj < 0.05 = 21
-
 
 # 2. Clinical strain for Sexual versus Asexual stage
 Tab2 <- glmQLFTest(fit, contrast=clinicalSexvsAsex, coef = 2)
@@ -256,7 +300,6 @@ sum(Tab3$table$PValue < 0.05 & Tab3$table$logFC > 1)
 sum(Tab3$table$padj < 0.05 & Tab3$table$logFC > 1)
 # padj < 0.05 = 0 gene
 
-
 # 4. At Asexual stage between clinical and lab strain
 Tab4 <- glmQLFTest(fit, contrast=asexual, coef = 2)
 
@@ -297,7 +340,7 @@ sum(Tab4$table$padj < 0.05 & Tab4$table$logFC > 1)
 # padj < 0.05 = 0 gene
 
 
-#Volcano plot for Tab1 
+##Volcano plot for Tab1 
 
 #change into data frame
 Tab1
@@ -327,11 +370,11 @@ dim(Tab1)
 head(annot) #table 2
 dim(annot)
 
-Tab1 <- merge(Tab1,annot, by="GeneID")
+Tab1 <- merge(Tab1,annot, by="GeneID") # merge two tables
 head(Tab1, n=10)
 dim(Tab1)
 
-#volvano plot
+## volvano plot
 #Volcano plots represent a useful way to visualize the results of DE analyses.
 png(paste0(outpath,"volcano_Tab1.png"))
 EnhancedVolcano(Tab1,
@@ -387,10 +430,10 @@ EnhancedVolcano(Tab1,
                 caption = NULL,
                 
 )
-dev.off()
+dev.off() #save the image
 
 
-#Volcano plot for Tab2 
+##Volcano plot for Tab2 
 
 #change into data frame
 Tab2
@@ -864,3 +907,48 @@ dim(overlap)
 
 #save the table in csv format
 write.csv(overlap,"Tab3_overlap.deg.csv",row.names=FALSE,quote=FALSE)
+
+
+## Heatmap for Tab3_overlap
+
+library(gplots)
+library(RColorBrewer)
+
+#Reading in data and transform it into matrix format
+data <- read.csv("Tab3_overlap2.csv", comment.char="#")
+rnames <- data[,1]                            # assign labels in column 1 to "rnames"
+mat_data <- data.matrix(data[,2:ncol(data)])  # transform column 2-5 into a matrix
+rownames(mat_data) <- rnames                  # assign row names
+
+#Customizing and plotting the heat map
+
+# creates a own color palette from red to green
+my_palette <- colorRampPalette(c("red", "yellow", "green"))(n = 21)
+
+# (optional) defines the color breaks manually for a "skewed" color transition
+col_breaks = c(seq(-1,0,length=100),  # for red
+               #seq(0.01,0.8,length=100),           # for yellow
+              seq(0.81,1,length=100))             # for green
+
+# creates a 5 x 5 inch image
+png(paste0(outpath,"heatmap2.png"),
+#png("../images/heatmaps_in_r.png",    # create PNG for the heat map        
+    width = 5*300,        # 5 x 300 pixels
+    height = 5*300,
+    res = 300,            # 300 pixels per inch
+    pointsize = 8)        # smaller font size
+
+heatmap.2(mat_data,
+          #cellnote = mat_data,  # same data set for cell labels
+          main = "DEG in clinical and lab strain", # heat map title
+          notecol = "black",      # change font color of cell labels to black
+          density.info="none",  # turns off density plot inside color legend
+          trace="none",         # turns off trace lines inside the heat map
+          margins = c(12,10),     # widens margins around plot
+          col=my_palette,       # use on color palette defined earlier
+          #breaks=col_breaks,    # enable color transition at specified limits
+          dendrogram= "row",     # only draw a row dendrogram
+          Colv= "NA")            # turn off column clustering
+
+dev.off()               # close the PNG device
+
